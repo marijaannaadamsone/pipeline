@@ -1,31 +1,26 @@
-// Jenkinsfile for DevOps Scripts
 pipeline {
     agent any
  
     environment {
-        SERVER_REGION = 'us-east-1'
-        BUILD_ENV = 'development'
+        DEPLOY_DIR = '/var/lib/jenkins/bootcamp-labs/scripts'
     }
  
     stages {
         stage('Checkout') {
             steps {
-                checkout scm
-                echo "Checked out bootcamp scripts from Git"
-                echo "Labs location: /home/ssm-user/bootcamp-labs"
+                git branch: 'main', url: 'https://github.com/hlande13/DevOpsBootcamp.git'
+                sh 'ls -la'
             }
         }
  
         stage('Script Validation') {
             steps {
-                echo "Validating scripts..."
                 sh '''
-                    cd scripts
                     echo "=== Script Validation ==="
                     for script in *.sh; do
                         if [ -f "$script" ]; then
                             echo "Checking syntax: $script"
-                            bash -n "$script" && echo "✓ $script syntax OK" || echo "✗ $script syntax error"
+                            bash -n "$script" && echo "OK: $script" || exit 1
                         fi
                     done
                 '''
@@ -34,19 +29,10 @@ pipeline {
  
         stage('Test Scripts') {
             steps {
-                echo "Testing bootcamp scripts..."
                 sh '''
-                    cd scripts
                     echo "=== Testing Scripts ==="
                     chmod +x *.sh
- 
-                    if [ -f "system-info.sh" ]; then
-                        echo "Testing system info script..."
-                        ./system-info.sh
-                    fi
- 
                     if [ -f "health-check.sh" ]; then
-                        echo "Testing health check script..."
                         ./health-check.sh
                     fi
                 '''
@@ -54,43 +40,21 @@ pipeline {
         }
  
         stage('Deploy Scripts') {
-            when {
-                branch 'main'
-            }
             steps {
-                cd scripts
-                echo "Deploying scripts to /home/ssm-user/bootcamp-labs"
                 sh '''
-                    echo "=== Deploying Bootcamp Scripts ==="
- 
-                    # Ensure bootcamp-labs directory exists
-                    mkdir -p /home/ssm-user/bootcamp-labs/scripts
- 
-                    # Copy scripts to bootcamp labs location
-                    cp *.sh /home/ssm-user/bootcamp-labs/scripts/
-                    chmod +x /home/ssm-user/bootcamp-labs/scripts/*.sh
- 
-                    # Create symlinks for easy access
-                    sudo ln -sf /home/ssm-user/bootcamp-labs/scripts/system-info.sh /usr/local/bin/system-info || true
-                    sudo ln -sf /home/ssm-user/bootcamp-labs/scripts/health-check.sh /usr/local/bin/health-check || true
- 
-                    echo "Deployment completed successfully"
-                    ls -la /home/ssm-user/bootcamp-labs/scripts/
+                    echo "=== Deploying Scripts to $DEPLOY_DIR ==="
+                    mkdir -p "$DEPLOY_DIR"
+                    cp *.sh "$DEPLOY_DIR"/
+                    chmod +x "$DEPLOY_DIR"/*.sh
+                    ls -la "$DEPLOY_DIR"
                 '''
             }
         }
     }
  
     post {
-        always {
-            echo "Bootcamp Pipeline completed"
-            archiveArtifacts artifacts: '*.sh', allowEmptyArchive: true
-        }
-        success {
-            echo "Bootcamp Pipeline succeeded!"
-        }
-        failure {
-            echo "Bootcamp Pipeline failed!"
-        }
+        always  { archiveArtifacts artifacts: '*.sh', allowEmptyArchive: true }
+        success { echo 'Bootcamp Pipeline succeeded!' }
+        failure { echo 'Bootcamp Pipeline failed!' }
     }
 }
